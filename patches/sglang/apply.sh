@@ -6,17 +6,26 @@
 #
 #   apply.sh DEST [--harness]      DEST: a new directory
 #
-# Then install DEST's SGLang as usual, for example pip install -e DEST/python.
+# The clone carries SGLang's history and tags (its version is computed from them) but downloads file contents only for
+# BASE, and writes them once, 16 files at a time (a parallel file system creates files faster side by side). Then
+# install DEST's SGLang as usual, for example pip install -e DEST/python.
 set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 DEST=${1:?usage: apply.sh DEST [--harness]}
 case "${2:-}" in "" | --harness) ;; *) echo "usage: apply.sh DEST [--harness]" >&2; exit 2 ;; esac
 BASE=$(head -1 "$HERE/BASE")
-git clone -q https://github.com/sgl-project/sglang "$DEST"
-git -C "$DEST" checkout -q "$BASE"
-for p in "$HERE"/serving/*.patch; do git -C "$DEST" apply "$p"; done
+N=3; [ "${2:-}" = --harness ] && N=4
+echo "apply.sh: SGLang ${BASE:0:9} with NIMBLE's patches, into $DEST"
+echo "[1/$N] cloning SGLang's history from GitHub (file contents come in step 2)"
+git clone --filter=blob:none --no-checkout https://github.com/sgl-project/sglang "$DEST"
+echo "[2/$N] checking out ${BASE:0:9}: downloading and writing its files"
+git -C "$DEST" -c advice.detachedHead=false -c checkout.workers=16 checkout "$BASE"
+echo "[3/$N] applying NIMBLE's patches"
+for p in "$HERE"/serving/*.patch; do git -C "$DEST" apply "$p"; echo "      $(basename "$p")"; done
 if [ "${2:-}" = --harness ]; then
-  for p in "$HERE"/harness/*.patch; do git -C "$DEST" apply "$p"; done
+  echo "[4/$N] applying NIMBLE's CI harness"
+  for p in "$HERE"/harness/*.patch; do git -C "$DEST" apply "$p"; echo "      $(basename "$p")"; done
   cp "$HERE/harness/a2a_timing.py" "$DEST/python/sglang/srt/layers/moe/token_dispatcher/"
 fi
-echo "apply.sh: SGLang ${BASE:0:9} with NIMBLE's patches in $DEST"
+echo "apply.sh: SGLang ${BASE:0:9} with NIMBLE's patches in $DEST ($((SECONDS / 60))m $((SECONDS % 60))s)"
+echo "next: install it as usual, for example pip install -e $DEST/python"

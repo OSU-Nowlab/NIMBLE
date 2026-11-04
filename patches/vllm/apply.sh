@@ -13,15 +13,44 @@ set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 SP=${1:?usage: apply.sh SITE [--check | --from-wheel WHEEL]}
 MODE=${2:-apply}
+STEP=
 if [ "$MODE" = "--from-wheel" ]; then
   WHEEL=${3:?usage: apply.sh SITE --from-wheel WHEEL}
   [ ! -e "$SP" ] || { echo "ABORT: $SP exists; --from-wheel makes a new directory"; exit 2; }
+  echo "[1/3] checking $(basename "$WHEEL") against BASE's sha256"
   want_sha=$(sed -n 's/^sha256=//p' "$HERE/BASE")
   [ "$(sha256sum "$WHEEL" | cut -c1-64)" = "$want_sha" ] || { echo "ABORT: $WHEEL is not BASE's wheel"; exit 2; }
+  echo "[2/3] unpacking it into $SP"
   mkdir -p "$SP"
-  python3 -m zipfile -e "$WHEEL" "$SP"
+  python3 - "$WHEEL" "$SP" <<'EOP'
+# python3 -m zipfile -e, 16 files at a time (a parallel file system creates files faster side by side), with a
+# progress bar on a terminal: files written, time spent, time left
+import sys, threading, time, zipfile
+from concurrent.futures import ThreadPoolExecutor
+wheel, site = sys.argv[1], sys.argv[2]
+with zipfile.ZipFile(wheel) as z:
+    members = z.infolist()
+local = threading.local()
+def extract(m):
+    if not hasattr(local, "z"):
+        local.z = zipfile.ZipFile(wheel)
+    try:
+        local.z.extract(m, site)
+    except FileExistsError:             # another writer made the same directory first
+        local.z.extract(m, site)
+bar, t0, n = sys.stdout.isatty(), time.monotonic(), len(members)
+with ThreadPoolExecutor(16) as pool:
+    for i, _ in enumerate(pool.map(extract, members), 1):
+        if bar and (i % 25 == 0 or i == n):
+            s = int(time.monotonic() - t0)
+            left = s * (n - i) // i
+            print(f"\r      [{'#' * (25 * i // n):<25}] {100 * i // n:3d}%  {i}/{n} files  "
+                  f"{s // 60}m{s % 60:02d}s, ~{left // 60}m{left % 60:02d}s left ", end="", flush=True)
+if bar:
+    print()
+EOP
   echo "unpacked $(basename "$WHEEL") into $SP"
-  MODE=apply
+  MODE=apply STEP="[3/3] "
 fi
 V=$SP/vllm
 [ -d "$V" ] || { echo "ABORT: no vllm package under $SP"; exit 2; }
@@ -40,6 +69,7 @@ if [ "$MODE" = "--check" ]; then
   exit 0
 fi
 [ "$MODE" = apply ] || { echo "apply.sh: unknown option $MODE" >&2; exit 2; }
+echo "${STEP}applying NIMBLE's patch series to vLLM $have under $SP"
 if applied; then
   echo "the series is already applied"
 else
@@ -52,3 +82,4 @@ fi
 find "$V/distributed/device_communicators" "$V/model_executor/layers/fused_moe" "$V/config" -name __pycache__ -type d \
   -prune -exec rm -rf {} + 2>/dev/null || true
 "$0" "$SP" --check
+echo "apply.sh: done ($((SECONDS / 60))m $((SECONDS % 60))s)"
