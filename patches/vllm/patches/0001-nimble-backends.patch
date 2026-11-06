@@ -14,7 +14,7 @@
      - "mori_low_latency": MoRI EP with InterNodeV1LL for multi-node
      - "nixl_ep": Use nixl-ep kernels
 +    - "nimble": Use NIMBLE's MoE dispatcher over its AllToAllV (the nimble package)
-+    - "nccl_a2a": Use NIMBLE's MoE dispatcher over NCCL's all-to-all (the baseline)
++    - "nccl_a2a": Use NIMBLE's MoE dispatcher over NCCL's all-to-all (for comparison)
      - "flashinfer_nvlink_one_sided": Use flashinfer high-throughput a2a kernels
      - "flashinfer_nvlink_two_sided": Use flashinfer two-sided kernels for mnnvl"""
  
@@ -58,7 +58,7 @@
                      self.cpu_group, tcp_store_group
                  )
 +            elif self.all2all_backend in ("nimble", "nccl_a2a"):
-+                # NIMBLE's MoE dispatcher (the nimble package: <NIMBLE>/python on PYTHONPATH)
++                # NIMBLE's MoE dispatcher (the nimble package, from the nimble-gpu wheel)
 +                from nimble.integrations.vllm import NimbleAll2AllManager
 +
 +                self.all2all_manager = NimbleAll2AllManager(
@@ -74,7 +74,7 @@
          )
  
 +    elif moe.use_nimble_kernels:
-+        # NIMBLE's MoE dispatcher (the nimble package: <NIMBLE>/python on PYTHONPATH)
++        # NIMBLE's MoE dispatcher (the nimble package, from the nimble-gpu wheel)
 +        from nimble.integrations.vllm import NimblePrepareAndFinalize
 +
 +        prepare_finalize = NimblePrepareAndFinalize.make(

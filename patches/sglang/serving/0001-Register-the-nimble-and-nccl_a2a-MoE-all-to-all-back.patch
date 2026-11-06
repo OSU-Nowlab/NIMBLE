@@ -4,11 +4,11 @@ Date: Mon, 12 Oct 2026 13:06:46 -0500
 Subject: [PATCH 1/2] Register the nimble and nccl_a2a MoE all-to-all backends
 
 --moe-a2a-backend nimble selects NIMBLE's MoE dispatcher, imported from the nimble package
-(nimble.integrations.sglang.NimbleEPDispatcher; put <NIMBLE>/python on PYTHONPATH): DeepEP-normal dispatch and
+(nimble.integrations.sglang.NimbleEPDispatcher, from the nimble-gpu wheel): DeepEP-normal dispatch and
 combine over NIMBLE's AllToAllV, so the backend joins the DeepEP-class backends everywhere they are listed (the
 dispatcher factory, the two-batch-overlap wrapper, DeepEPMoE, the FP8 method and the models' routing checks).
 SGLANG_NIMBLE_DISPATCHER=fused (default) or dedup selects its mode. nccl_a2a is the same dispatcher over
-torch.distributed's all_to_all_single on the expert-parallel group, i.e. NCCL: the baseline that differs from
+torch.distributed's all_to_all_single on the expert-parallel group, i.e. NCCL, for comparison: it differs from
 nimble only in the transport.
 ---
  python/sglang/srt/batch_overlap/two_batch_overlap.py   |  6 ++++++

@@ -2,13 +2,13 @@
 
 GPU AllToAllV for irregular traffic, with an MoE dispatcher for SGLang and vLLM.
 
-> NIMBLE started as the system of our IPDPS 2026 paper, *From Skew to Symmetry: Node-Interconnect Multi-Path Balancing
+> NIMBLE implements our IPDPS 2026 paper, *From Skew to Symmetry: Node-Interconnect Multi-Path Balancing
 > with Execution-time Planning for Modern GPU Clusters*: [arXiv:2604.00317](https://arxiv.org/abs/2604.00317).
 
 NIMBLE plans each AllToAllV from the byte matrix every rank passes: which bytes go directly and which are relayed
 through another GPU of the node onto a less loaded NIC. One kernel per call on each GPU moves the data, and one CPU
 thread per NIC posts the RDMA writes. It is built for the traffic a fixed-path AllToAll handles worst: a hot receiver,
-one heavy pair, skewed MoE routing, large same-node transfers. No user buffer registeration needed!
+one heavy pair, skewed MoE routing, large same-node transfers. It needs no user buffer registration.
 
 ## Why NIMBLE
 
@@ -66,10 +66,9 @@ Run it:
 - [vllm_server.sh](examples/serving/vllm_server.sh): vLLM's server with `--all2all-backend nimble`, one data-parallel
   engine per GPU, then [client.py](examples/serving/client.py) against it (`MODE=dedup` for dedup).
 
-Both frameworks take NIMBLE's backends through a small patch, in the release's `nimble_frameworks-1.0.0.tar.gz` and in
-[tools/sglang_ep/setup](tools/sglang_ep/setup) and [tools/vllm_ep/setup](tools/vllm_ep/setup). The steps are in the
-[serving guide](docs/python_usage.md#serving-sglang-and-vllm), and every path the examples use is in
-[site_env.sh](examples/serving/site_env.sh).
+Both frameworks take NIMBLE's backends through a small patch, in [patches/](patches/) and in the release's
+`nimble_frameworks-1.0.0.tar.gz`. The steps are in [examples/README.md](examples/README.md#3-vllm), and every path
+the examples use is in [site_env.sh](examples/serving/site_env.sh).
 
 ## User APIs
 
@@ -94,7 +93,7 @@ several ([launch_slurm.sh](examples/python/launch_slurm.sh)).
 | `nimble.NimbleError`, `comm.async_error()`, `comm.raise_async_error()`, `comm.abort()` | errors, asynchronous failures, abort | [errors](examples/python/06_errors.py) |
 | `nimble.destroy()`, `comm.destroy()` | shuts a communicator down (collective) | [quickstart](examples/python/01_all_to_all_single.py), [subgroups](examples/python/04_subgroups.py) |
 | `nimble.version_string()`, `nimble.__version__` | the library's and the package's versions | [quickstart](examples/python/01_all_to_all_single.py) |
-| `nimble.dedup` | the caller's side of the MoE dedup call | [reference](docs/python_api.md#the-moe-dedup-call) |
+| `nimble.dedup` | the MoE dedup call that `Dispatcher(mode="dedup")` makes (two or more nodes) | [MoE dispatcher](examples/python/07_moe_dispatcher.py) (`--mode dedup`) |
 
 ### MoE: `nimble.moe` and `nimble.integrations`
 
@@ -106,5 +105,4 @@ several ([launch_slurm.sh](examples/python/launch_slurm.sh)).
 | `nimble.integrations.sglang` | SGLang's `--moe-a2a-backend nimble` (and `nccl_a2a`) | [sglang_server.sh](examples/serving/sglang_server.sh), [sglang_offline.py](examples/serving/sglang_offline.py) |
 | `nimble.integrations.vllm` | vLLM's `--all2all-backend nimble` (and `nccl_a2a`) | [vllm_server.sh](examples/serving/vllm_server.sh) |
 
-Every use case step by step: [docs/python_usage.md](docs/python_usage.md). Every argument:
-[docs/python_api.md](docs/python_api.md).
+Every use case step by step: [examples/README.md](examples/README.md).

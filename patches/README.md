@@ -11,10 +11,11 @@ pip install nimble_gpu-1.0.0-py3-none-manylinux_2_28_aarch64.whl
 ## SGLang, commit `fbf8f1d`
 
 - **Apply:** `sglang/apply.sh DEST` clones the public SGLang into the new directory `DEST`, checks out the base
-  commit (`sglang/BASE`) and applies `sglang/serving/`: the `nimble` and `nccl_a2a` MoE all-to-all backends and one
-  upstream fix. Then install `DEST`'s SGLang as you normally would, for example `pip install -e DEST/python`.
+  commit (`sglang/BASE`) and applies `sglang/serving/`: the `nimble` and `nccl_a2a` MoE all-to-all backends, and a
+  correction to SGLang's `ep_scatter_from_psum` launch. Then install `DEST`'s SGLang as you normally would, for example
+  `SGLANG_BUILD_RUST_EXTS=none pip install -e DEST/python` (SGLang without its Rust extensions: no Rust toolchain needed).
 - **Run:** `--moe-a2a-backend nimble`, or `nccl_a2a` for the same dispatcher over NCCL, with `--disable-cuda-graph`.
-  Tested with DP attention and expert parallelism (`--tp-size N --ep-size N --dp-size N --enable-dp-attention`),
+  It runs with DP attention and expert parallelism (`--tp-size N --ep-size N --dp-size N --enable-dp-attention`),
   DeepGEMM experts (`--moe-runner-backend deep_gemm`) and DeepSeek-V3 FP8.
 - **Mode:** `SGLANG_NIMBLE_DISPATCHER=fused` (the default) or `dedup`. The dedup mode also needs `NIMBLE_DEDUP=1` on
   every rank; `SGLANG_NIMBLE_MAX_TOKENS` bounds its tokens per rank and call (default 16384).
@@ -29,5 +30,5 @@ pip install nimble_gpu-1.0.0-py3-none-manylinux_2_28_aarch64.whl
   `--enable-expert-parallel` and data parallelism across the GPUs (`--data-parallel-size N --tensor-parallel-size 1`).
   The patch turns CUDA graphs off for these backends.
 - **Mode:** `VLLM_NIMBLE_DISPATCHER=fused` (the default) or `dedup`, which also needs `NIMBLE_DEDUP=1` on every rank.
-- **Expert kernel:** vLLM's default FP8 MoE kernel (FlashInfer's TRT-LLM) runs untuned at expert-parallel batch
-  sizes. `--moe-backend deep_gemm` brought vLLM's MoE compute to SGLang's level in our measurements.
+- **Expert kernel:** vLLM's default FP8 MoE kernel (FlashInfer's TRT-LLM) is not tuned for expert-parallel batch
+  sizes; `--moe-backend deep_gemm` brings vLLM's MoE compute to SGLang's level.

@@ -1,9 +1,9 @@
 #!/bin/bash
 # NIMBLE's backends in vLLM -- `--all2all-backend nimble` (NIMBLE's MoE dispatcher over its AllToAllV) and `nccl_a2a`
-# (the same dispatcher over NCCL's all-to-all, the baseline): patch a vLLM package (BASE's version only). The patch
-# series (patches/*.patch, applied in order to vLLM's own files) adds the backends' names, the manager's construction,
-# the prepare / finalize factory entry, the CUDA-graph switch and the TRT-LLM experts' admission; the classes come from
-# the nimble package (nimble.integrations.vllm): put <NIMBLE>/python on PYTHONPATH.
+# (the same dispatcher over NCCL's all-to-all, for comparison): patch a vLLM package (BASE's version only). The patches
+# (patches/*.patch, applied in order to vLLM's own files) register both backends, turn CUDA graphs off for them and let
+# vLLM's TRT-LLM FP8 experts run behind them; the classes come from the nimble package (nimble.integrations.vllm):
+# install the nimble-gpu wheel in the same environment.
 #   apply.sh SITE                      patch the vllm/ package under SITE (e.g. <venv>/lib/python3.12/site-packages)
 #   apply.sh SITE --from-wheel WHEEL   first unpack BASE's wheel (sha256-checked) into a new directory SITE: an overlay
 #                                      to put ahead of a venv's site-packages on PYTHONPATH, leaving the venv untouched
@@ -23,8 +23,7 @@ if [ "$MODE" = "--from-wheel" ]; then
   echo "[2/3] unpacking it into $SP"
   mkdir -p "$SP"
   python3 - "$WHEEL" "$SP" <<'EOP'
-# python3 -m zipfile -e, 16 files at a time (a parallel file system creates files faster side by side), with a
-# progress bar on a terminal: files written, time spent, time left
+# python3 -m zipfile -e, 16 files at a time, with a progress bar on a terminal: files written, time spent, time left
 import sys, threading, time, zipfile
 from concurrent.futures import ThreadPoolExecutor
 wheel, site = sys.argv[1], sys.argv[2]
@@ -57,7 +56,7 @@ V=$SP/vllm
 want=$(sed -n 's/^vllm==//p' "$HERE/BASE")
 have=$(sed -n 's/^Version: //p' "$SP"/vllm-*.dist-info/METADATA 2>/dev/null | head -1)
 [ "$have" = "$want" ] || { echo "ABORT: vLLM $have under $SP; the series is for $want (BASE)"; exit 2; }
-applied() {  # every patch of the series applies in reverse: it is in
+applied() {  # every patch of the series applies in reverse: the series is applied
   local p
   for p in "$HERE"/patches/*.patch; do
     patch -d "$SP" -p1 -R --dry-run -s -f < "$p" > /dev/null 2>&1 || return 1
@@ -75,7 +74,7 @@ if applied; then
 else
   for p in "$HERE"/patches/*.patch; do
     patch -d "$SP" -p1 --dry-run -s -f < "$p" > /dev/null 2>&1 || {
-      echo "ABORT: $(basename "$p") does not apply (another series is in: reinstall BASE's wheel)"; exit 2; }
+      echo "ABORT: $(basename "$p") does not apply (the vllm package has other changes: reinstall BASE's wheel)"; exit 2; }
   done
   for p in "$HERE"/patches/*.patch; do patch -d "$SP" -p1 -s -f < "$p"; echo "applied $(basename "$p")"; done
 fi

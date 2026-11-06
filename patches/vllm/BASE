@@ -1,4 +1,4 @@
-# The vLLM NIMBLE's vLLM backend is built and tested against (tools/vllm_ep). apply.sh refuses any other version.
+# The vLLM version NIMBLE's vLLM backend is built for; apply.sh refuses any other.
 vllm==0.30.0
 wheel=vllm-0.30.0-cp38-abi3-manylinux_2_28_aarch64.whl
 sha256=eb3e11bab695d085098579a6eda2d602419adec3826ebfbcce9a3ffa543eb62e

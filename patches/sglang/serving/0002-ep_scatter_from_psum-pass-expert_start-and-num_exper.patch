@@ -4,7 +4,7 @@ Date: Mon, 12 Oct 2026 13:06:49 -0500
 Subject: [PATCH 2/2] ep_scatter_from_psum: pass expert_start and num_experts
  to the scatter kernel
 
-The kernel gained the two parameters and this launch (the DeepEP v2 contiguous-layout pre-permute) did not pass them.
+Pass the kernel's expert_start and num_experts parameters from this launch (the DeepEP v2 contiguous-layout pre-permute).
 The DeepEP v2 path hands local expert ids, so expert_start is 0.
 ---
  python/sglang/kernels/ops/moe/ep_moe_kernels.py | 2 ++
